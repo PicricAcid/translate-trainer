@@ -68,15 +68,40 @@ fn get_document(state: State<AppState>) -> Result<Document, String> {
 }
 
 #[tauri::command]
-fn insert_block(id: u32, before: String, after: String, state: State<AppState>) -> Result<Document, String> {
+fn insert_block(id: u32, pos: u32, before: String, after: String, state: State<AppState>) -> Result<Document, String> {
     let mut doc = state.document.lock().map_err(|e| e.to_string())?;
 
     // idのblockのblocksの中での位置
     let idx = doc.blocks.iter().position(|b| b.id == id)
         .ok_or("block not found")?;
+
+    // 分割位置を算出(= beforeの文字数)
+    let split_pos = pos;
+
+    // highlightも分割前後に振り分ける
+    let mut before_highlights = vec![];
+    let mut after_highlights = vec![];
+
+    for h in doc.blocks[idx].highlights.drain(..) {
+        if h.end <= split_pos {
+            // before範囲に収まる場合
+            before_highlights.push(h);
+        } else if h.start >= split_pos {
+            // after範囲に収まる場合
+            after_highlights.push(HighlightRange {
+                start: h.start - split_pos,
+                end: h.end - split_pos,
+                vocab_id: h.vocab_id,
+            });
+        } else {
+            // 分割位置をまたがるハイライトは破棄する
+        }
+    }
         
     // 分割元のblockにはbeforeを上書き
     doc.blocks[idx].content = before;
+
+    doc.blocks[idx].highlights = before_highlights;
     
     let new_block_type: BlockType = 
         if doc.blocks[idx].block_type == BlockType::En {
@@ -102,7 +127,7 @@ fn insert_block(id: u32, before: String, after: String, state: State<AppState>) 
             id: next_block_id(),
             block_type: doc.blocks[idx].block_type,
             content: after,
-            highlights: vec![],
+            highlights: after_highlights,
         });
     }
 
@@ -250,6 +275,12 @@ fn add_highlight(block_id: u32, start: u32, end: u32, state: State<AppState>) ->
         meaning: String::new(),
         block_id: block_id,
     });
+
+    println!(
+        "block {} highlights: {:?}",
+        block_id,
+        doc.blocks[idx].highlights
+    );
 
     Ok(doc.clone()) 
 }

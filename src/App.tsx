@@ -78,7 +78,7 @@ function BlockTextarea({
     block: Block;
     onChange: (id: number, content: string) => void;
     onCommit: (id: number, content: string) => Promise<void>;
-    onSplit: (id: number, before: string, after: string) => Promise<void>;
+    onSplit: (id: number, pos: number, before: string, after: string) => Promise<void>;
     registerRef: (id: number, el: HTMLTextAreaElement | null) => void;
     onHighlight: (id: number, start: number, end: number) => Promise<void>;
 }) {
@@ -107,18 +107,30 @@ function BlockTextarea({
         const ta = ref.current;
         if (!ta) return;
         const pos = ta.selectionStart;
+
+        const rawAfter = ta.value.slice(pos);
         const before = ta.value.slice(0, pos).trimEnd();
-        const after = ta.value.slice(pos).trimStart();
-        onSplit(block.id, before, after);
+        const after = rawAfter.trimStart();
+
+        // posのままだと改行丸めなどで文字列が変わるため、丸め前の位置を返す
+        const afterpos = pos + (rawAfter.length - after.length);
+        onSplit(block.id, afterpos, before, after);
     }
 
-    function handleHighlightClick() {
+    async function handleHighlightClick() {
         const ta = ref.current;
         if (!ta) return;
         const start = ta.selectionStart;
         const end = ta.selectionEnd;
         if (start === end) return;
+
+        // contentをcommitしてからハイライト追加
+        await onCommit(block.id, ta.value);
         onHighlight(block.id, start, end);
+
+        // ハイライト登録後focusを外す(focus状態だとハイライトが反映されない)
+        setIsEditing(false);
+        ta.blur();
     }
 
     return (
@@ -297,8 +309,8 @@ function App() {
         setDocument(result);
     }
 
-    async function splitBlock(id: number, before: string, after: string) {
-        const result = await invoke<Document>("insert_block", { id, before, after });
+    async function splitBlock(id: number, pos: number, before: string, after: string) {
+        const result = await invoke<Document>("insert_block", { id, pos, before, after });
         setDocument(result);
     }
 
