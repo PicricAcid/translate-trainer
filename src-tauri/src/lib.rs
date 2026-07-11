@@ -276,12 +276,6 @@ fn add_highlight(block_id: u32, start: u32, end: u32, state: State<AppState>) ->
         block_id: block_id,
     });
 
-    println!(
-        "block {} highlights: {:?}",
-        block_id,
-        doc.blocks[idx].highlights
-    );
-
     Ok(doc.clone()) 
 }
 
