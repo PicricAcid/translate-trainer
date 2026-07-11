@@ -36,6 +36,7 @@ enum BlockType {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct Document {
+    title: String,
     blocks: Vec<Block>,
     focus_block_id: Option<u32>,
     vocab: Vec<VocabEntry>,
@@ -116,6 +117,7 @@ fn insert_block(id: u32, before: String, after: String, state: State<AppState>) 
 
 #[tauri::command]
 fn update_block(id: u32, content: String, state: State<AppState>) -> Result<Document, String> {
+    // Documentのロック取得
     let mut doc = state.document.lock().map_err(|e| e.to_string())?;
 
     let idx = doc.blocks.iter().position(|b| b.id == id)
@@ -145,12 +147,19 @@ async fn open_document(app: tauri::AppHandle, state: State<'_, AppState>) -> Res
 
     let ext = path.extension().and_then(|e| e.to_str());
     let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+
+    // Documentのロック取得
     let mut doc = state.document.lock().map_err(|e| e.to_string())?;
 
     match ext {
         Some("txt") => {
             // 新規テキストではidを1から振り直し
             NEXT_BLOCK_ID.store(1, Ordering::Relaxed);
+
+            let title = path.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("nontitle")
+                .to_string();
 
             let new_block = Block {
                 id: next_block_id(),
@@ -161,6 +170,7 @@ async fn open_document(app: tauri::AppHandle, state: State<'_, AppState>) -> Res
 
             doc.blocks = vec![new_block];
             doc.focus_block_id = None;
+            doc.title = title;
         }
         Some("json") => {
             let new_doc: Document = serde_json::from_str(&content).map_err(|e| e.to_string())?;
@@ -181,11 +191,15 @@ async fn open_document(app: tauri::AppHandle, state: State<'_, AppState>) -> Res
 async fn save_document(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     let (tx, rx) = mpsc::channel();
 
+    // Documentのロック取得
     let doc = state.document.lock().map_err(|e| e.to_string())?;
+
+    let default_name = format!("{}.json", doc.title);
+
     app.dialog()
         .file()
         .add_filter("JSON", &["json"])
-        .set_file_name("document.json")
+        .set_file_name(&default_name)
         .save_file(move |file_path| {
             let _ = tx.send(file_path);
         });
@@ -252,12 +266,21 @@ fn update_vocab_meaning(id: u32, meaning: String, state: State<AppState>) -> Res
     Ok(doc.clone())
 }
 
+#[tauri::command]
+fn update_title(title: String, state: State<AppState>) -> Result<Document, String> {
+    // Documentのロックを取得
+    let mut doc = state.document.lock().map_err(|e| e.to_string())?;
+    doc.title = title;
+    Ok(doc.clone())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             document: Mutex::new(Document {
+                title: "nontitle".to_string(),
                 blocks: vec![
                     Block {
                         id: next_block_id(),
@@ -278,6 +301,7 @@ pub fn run() {
             save_document,
             add_highlight,
             update_vocab_meaning,
+            update_title,
         ])
         .run(tauri::generate_context!())
         .expect("Error!")

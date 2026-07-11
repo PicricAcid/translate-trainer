@@ -25,6 +25,7 @@ export interface VocabEntry {
 }
 
 export interface Document {
+    title: string;
     blocks: Block[];
     focus_block_id: number | null;
     vocab: VocabEntry[];
@@ -183,15 +184,25 @@ function BlockTextarea({
 }
 
 function Toolbar({
+    title,
+    onTitleChange,
+    onTitleCommit,
     onOpen,
     onSave,
 }: {
+    title: string;
+    onTitleChange: (title: string) => void;
+    onTitleCommit: (title: string) => Promise<void>;
     onOpen: () => void;
     onSave: () => void;
 }) {
     return (
         <header className="toolbar">
-            <span className="toolbar-title">The Great Gatsby — Chapter 1</span>
+            <input className="toolbar-title"
+                value={title}
+                onChange={(e) => onTitleChange(e.target.value)}
+                onBlur={(e) => onTitleCommit(e.target.value)}
+            />
             <button className="tb-btn" onClick={onOpen}>開く</button>
             <button className="tb-btn" onClick={onSave}>保存</button>
         </header>
@@ -250,6 +261,7 @@ function Sidebar({
 
 function App() {
     const [document, setDocument] = useState<Document>({ 
+        title: "",
         blocks: [],
         focus_block_id: null,
         vocab: [],
@@ -309,12 +321,27 @@ function App() {
         setDocument(result);
     }
 
+    function updateTitle(title: string) {
+        setDocument((prev) => ({ ...prev, title }));
+    }
+
+    async function commitTitle(title: string) {
+        const result = await invoke<Document>("update_title", { title });
+        setDocument(result);
+    }
+
     const enCount = document.blocks.filter((b) => b.block_type === "en").length;
     const jaCount = document.blocks.filter((b) => b.block_type === "ja").length;
 
     return (
         <div className="app">
-            <Toolbar onOpen={handleOpen} onSave={handleSave} />
+            <Toolbar 
+                title={document.title}
+                onTitleChange={updateTitle}
+                onTitleCommit={commitTitle}
+                onOpen={handleOpen}
+                onSave={handleSave}
+            />
             <div className="main">
                 <div className="editor">
                     {document.blocks.map((block, i) => {

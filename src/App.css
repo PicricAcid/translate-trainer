@@ -33,6 +33,15 @@
   font-weight: 500;
   color: #1a1a18;
   flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  padding: 0;
+}
+
+.toolbar-title:focus {
+    outline: none;
 }
 
 .tb-btn {
