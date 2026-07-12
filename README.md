@@ -1,6 +1,8 @@
 # Translate Trainer
 英文読解の練習ツールです。
 
+![main_window](./docs/images/main_window.png)
+
 ## 機能
 - 英語のドキュメント(.txt)を開き、表示する
 - 表示したドキュメントの任意の位置で日本語訳を挿入する
@@ -15,10 +17,12 @@
 
 - 日本語訳の入力
     - 開いた英文ドキュメントの日本語訳を挿入したい位置にカーソルを合わせて"+"ボタンを押す。
+    ![insert_button](./docs/images/insert_and_marker_button2.png)
     - 日本語訳入力ブロックが現れるので、日本語訳を入力する
 
 - マーカーを引く
     - 任意の単語、センテンスを範囲選択し、"✎"ボタンを押す
+    ![marker_button](./docs/images/insert_and_marker_button.png)
     - 単語帳に登録された単語、センテンスに日本語の意味を登録する
 
 - タイトルを変更する
